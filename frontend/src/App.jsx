@@ -22,6 +22,18 @@ function App() {
     }
   }, [currentConversationId]);
 
+  // Listen for new conversation with prompt event
+  useEffect(() => {
+    const handleEvent = (e) => {
+      handleNewConversationWithPrompt(e.detail);
+    };
+
+    window.addEventListener('new-conversation-with-prompt', handleEvent);
+    return () => {
+      window.removeEventListener('new-conversation-with-prompt', handleEvent);
+    };
+  }, [conversations]); // Depend on conversations to ensure fresh state when updating list
+
   const loadConversations = async () => {
     try {
       const convs = await api.listConversations();
@@ -53,21 +65,47 @@ function App() {
     }
   };
 
+  const handleNewConversationWithPrompt = async (prompt) => {
+    try {
+      const newConv = await api.createConversation();
+      
+      // Update conversations list
+      setConversations(prev => [
+        { id: newConv.id, created_at: newConv.created_at, message_count: 0 },
+        ...prev,
+      ]);
+      
+      setCurrentConversationId(newConv.id);
+      setCurrentConversation(newConv);
+
+      // Send message with the new ID
+      await handleSendMessage(prompt, newConv.id, newConv);
+    } catch (error) {
+      console.error('Failed to create conversation:', error);
+    }
+  };
+
   const handleSelectConversation = (id) => {
     setCurrentConversationId(id);
   };
 
-  const handleSendMessage = async (content) => {
-    if (!currentConversationId) return;
+  const handleSendMessage = async (content, conversationId = null, initialConversation = null) => {
+    const targetId = conversationId || currentConversationId;
+    if (!targetId) return;
 
     setIsLoading(true);
     try {
       // Optimistically add user message to UI
       const userMessage = { role: 'user', content };
-      setCurrentConversation((prev) => ({
-        ...prev,
-        messages: [...prev.messages, userMessage],
-      }));
+      
+      setCurrentConversation((prev) => {
+        // If we provided an initial conversation (newly created), use that as base
+        const base = initialConversation || prev;
+        return {
+          ...base,
+          messages: [...(base.messages || []), userMessage],
+        };
+      });
 
       // Create a partial assistant message that will be updated progressively
       const assistantMessage = {
@@ -90,7 +128,7 @@ function App() {
       }));
 
       // Send message with streaming
-      await api.sendMessageStream(currentConversationId, content, (eventType, event) => {
+      await api.sendMessageStream(targetId, content, (eventType, event) => {
         switch (eventType) {
           case 'stage1_start':
             setCurrentConversation((prev) => {

@@ -5,6 +5,29 @@ import Stage2 from './Stage2';
 import Stage3 from './Stage3';
 import './ChatInterface.css';
 
+const SUGGESTIONS = [
+  {
+    title: 'Compare Perspectives',
+    text: 'What are the pros and cons of remote work vs. office work?',
+    prompt: 'Compare the pros and cons of remote work versus working from an office. Provide a balanced analysis.'
+  },
+  {
+    title: 'Creative Writing',
+    text: 'Write a short sci-fi story about a robot who learns to paint.',
+    prompt: 'Write a short science fiction story about a robot who discovers a passion for painting and what happens when it tries to express emotions.'
+  },
+  {
+    title: 'Code Review',
+    text: 'Explain the difference between React Context and Redux.',
+    prompt: 'Explain the key differences between React Context API and Redux for state management, and when to use each.'
+  },
+  {
+    title: 'Complex Analysis',
+    text: 'Analyze the economic impact of renewable energy transition.',
+    prompt: 'Analyze the potential economic impacts of a global transition to renewable energy sources over the next 20 years.'
+  }
+];
+
 export default function ChatInterface({
   conversation,
   onSendMessage,
@@ -37,12 +60,33 @@ export default function ChatInterface({
     }
   };
 
+  const handleSuggestionClick = (prompt) => {
+    if (!isLoading) {
+      onSendMessage(prompt);
+    }
+  };
+
   if (!conversation) {
     return (
       <div className="chat-interface">
         <div className="empty-state">
           <h2>Welcome to LLM Council</h2>
-          <p>Create a new conversation to get started</p>
+          <p>
+            Consult a council of AI models to get comprehensive, ranked, and synthesized answers.
+            Start a new conversation or choose a topic below.
+          </p>
+          <div className="suggestions-grid">
+            {SUGGESTIONS.map((s, i) => (
+              <div 
+                key={i} 
+                className="suggestion-card"
+                onClick={() => window.dispatchEvent(new CustomEvent('new-conversation-with-prompt', { detail: s.prompt }))}
+              >
+                <div className="suggestion-title">{s.title}</div>
+                <div className="suggestion-text">{s.text}</div>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
     );
@@ -55,6 +99,18 @@ export default function ChatInterface({
           <div className="empty-state">
             <h2>Start a conversation</h2>
             <p>Ask a question to consult the LLM Council</p>
+            <div className="suggestions-grid">
+              {SUGGESTIONS.map((s, i) => (
+                <div 
+                  key={i} 
+                  className="suggestion-card"
+                  onClick={() => handleSuggestionClick(s.prompt)}
+                >
+                  <div className="suggestion-title">{s.title}</div>
+                  <div className="suggestion-text">{s.text}</div>
+                </div>
+              ))}
+            </div>
           </div>
         ) : (
           conversation.messages.map((msg, index) => (
@@ -120,7 +176,29 @@ export default function ChatInterface({
         <div ref={messagesEndRef} />
       </div>
 
-      {conversation.messages.length === 0 && (
+      {(conversation.messages.length > 0 || isLoading) && (
+        <form className="input-form" onSubmit={handleSubmit}>
+          <textarea
+            className="message-input"
+            placeholder="Ask your question... (Shift+Enter for new line, Enter to send)"
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={handleKeyDown}
+            disabled={isLoading}
+            rows={3}
+          />
+          <button
+            type="submit"
+            className="send-button"
+            disabled={!input.trim() || isLoading}
+          >
+            Send
+          </button>
+        </form>
+      )}
+      
+      {/* Show input form even in empty state if a conversation is selected */}
+      {conversation.messages.length === 0 && !isLoading && (
         <form className="input-form" onSubmit={handleSubmit}>
           <textarea
             className="message-input"
