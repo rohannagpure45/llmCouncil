@@ -72,7 +72,11 @@ export default function Sidebar({
                       {conv.title || 'New Conversation'}
                     </div>
                     <div className="conversation-meta">
-                      <span>{new Date(conv.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+                      <span>
+                        {group === 'Today' 
+                          ? new Date(conv.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})
+                          : new Date(conv.created_at).toLocaleDateString(undefined, {month: 'short', day: 'numeric'})}
+                      </span>
                       <span>{conv.message_count} msgs</span>
                     </div>
                   </div>
