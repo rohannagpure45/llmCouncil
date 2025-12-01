@@ -101,6 +101,9 @@ function App() {
       setCurrentConversation((prev) => {
         // If we provided an initial conversation (newly created), use that as base
         const base = initialConversation || prev;
+        // Guard against race condition if we switched conversations
+        if (base?.id !== targetId) return prev;
+
         return {
           ...base,
           messages: [...(base.messages || []), userMessage],
@@ -122,68 +125,83 @@ function App() {
       };
 
       // Add the partial assistant message
-      setCurrentConversation((prev) => ({
-        ...prev,
-        messages: [...prev.messages, assistantMessage],
-      }));
+      setCurrentConversation((prev) => {
+        if (prev?.id !== targetId) return prev;
+        return {
+          ...prev,
+          messages: [...prev.messages, assistantMessage],
+        };
+      });
 
       // Send message with streaming
       await api.sendMessageStream(targetId, content, (eventType, event) => {
         switch (eventType) {
           case 'stage1_start':
             setCurrentConversation((prev) => {
+              if (prev?.id !== targetId) return prev;
               const messages = [...prev.messages];
               const lastMsg = messages[messages.length - 1];
-              lastMsg.loading.stage1 = true;
+              if (lastMsg) lastMsg.loading.stage1 = true;
               return { ...prev, messages };
             });
             break;
 
           case 'stage1_complete':
             setCurrentConversation((prev) => {
+              if (prev?.id !== targetId) return prev;
               const messages = [...prev.messages];
               const lastMsg = messages[messages.length - 1];
-              lastMsg.stage1 = event.data;
-              lastMsg.loading.stage1 = false;
+              if (lastMsg) {
+                lastMsg.stage1 = event.data;
+                lastMsg.loading.stage1 = false;
+              }
               return { ...prev, messages };
             });
             break;
 
           case 'stage2_start':
             setCurrentConversation((prev) => {
+              if (prev?.id !== targetId) return prev;
               const messages = [...prev.messages];
               const lastMsg = messages[messages.length - 1];
-              lastMsg.loading.stage2 = true;
+              if (lastMsg) lastMsg.loading.stage2 = true;
               return { ...prev, messages };
             });
             break;
 
           case 'stage2_complete':
             setCurrentConversation((prev) => {
+              if (prev?.id !== targetId) return prev;
               const messages = [...prev.messages];
               const lastMsg = messages[messages.length - 1];
-              lastMsg.stage2 = event.data;
-              lastMsg.metadata = event.metadata;
-              lastMsg.loading.stage2 = false;
+              if (lastMsg) {
+                lastMsg.stage2 = event.data;
+                lastMsg.metadata = event.metadata;
+                lastMsg.loading.stage2 = false;
+              }
               return { ...prev, messages };
             });
             break;
 
           case 'stage3_start':
             setCurrentConversation((prev) => {
+              if (prev?.id !== targetId) return prev;
               const messages = [...prev.messages];
               const lastMsg = messages[messages.length - 1];
-              lastMsg.loading.stage3 = true;
+              if (lastMsg) lastMsg.loading.stage3 = true;
               return { ...prev, messages };
             });
             break;
 
           case 'stage3_complete':
             setCurrentConversation((prev) => {
+              if (prev?.id !== targetId) return prev;
               const messages = [...prev.messages];
               const lastMsg = messages[messages.length - 1];
-              lastMsg.stage3 = event.data;
-              lastMsg.loading.stage3 = false;
+              if (lastMsg) {
+                lastMsg.stage3 = event.data;
+                lastMsg.loading.stage3 = false;
+              }
               return { ...prev, messages };
             });
             break;
@@ -211,10 +229,13 @@ function App() {
     } catch (error) {
       console.error('Failed to send message:', error);
       // Remove optimistic messages on error
-      setCurrentConversation((prev) => ({
-        ...prev,
-        messages: prev.messages.slice(0, -2),
-      }));
+      setCurrentConversation((prev) => {
+        if (prev?.id !== targetId) return prev;
+        return {
+          ...prev,
+          messages: prev.messages.slice(0, -2),
+        };
+      });
       setIsLoading(false);
     }
   };
